@@ -1,38 +1,34 @@
 const blogModel = require('../models/blogsModel')
 const authorModel = require('../models/authorModel')
+const validation = require('../validate/validation')
 const mongoose = require('mongoose')
 const moment = require('moment')
+
+const {isEmpty} = validation
 
 //------------------------------------ Blog Create ---------------------------------
 const createBlog = async function(req, res){
     try{
 
-        const {title,
-            body,
-            authorId,
-            category,
-            tags,
-            subcategory,
-            isPublished,
-            isDeleted,
-            } = req.body
+        const {title,body,authorId,category,isPublished} = req.body
     
+        /*------------------------Checking body is empty or not-----------------------------------*/
         if(Object.keys(req.body).length == 0) {return res.status(400).send({status:false, msg:"can not create blog with empty body"})}
         
+        /*------------------------Checking fileds are present or not-----------------------------------*/
         if(!title){return res.status(400).send({status:false, msg : "Title is required"})}
         if(!body){return res.status(400).send({status:false, msg : "body is required"})}
         if(!authorId){return res.status(400).send({status:false, msg : "authorId is required"})}
         if(!category){return res.status(400).send({status:false, msg : "category is required"})}
-    
+
+        /*------------------------Mongoose Id Validation-----------------------------------*/
         if(!(mongoose.isValidObjectId(authorId))) {return res.status(400).send({status:false, msg:"invalid authorId"})}
-    
-        if(typeof(title) !== "string" && title.trim().length == 0){return res.status(400).send({status:false, msg:"Title is invalid"})}
-        if(typeof(body) !== "string" && body.trim().length == 0){return res.status(400).send({status:false, msg:"body is invalid"})}
-        if(typeof(category) !== "string" && category.trim().length == 0){return res.status(400).send({status:false, msg:"category is invalid"})}
-        if(typeof(subcategory) !== 'object' && subcategory.length==0) {return res.status(400).send({status: false, msg: "subcategory is invalid"})}
-        if(typeof(tags) !== 'object' && tags.length==0) {return res.status(400).send({status: false, msg: "tags is invalid"})}
-        if(typeof(isDeleted) !== 'boolean' && isDeleted == true){return res.status(400).send({status: false, msg: "isDeleted should be false at the time of creation."})}
-        if(typeof(isPublished) !== 'boolean') {return res.status(400).send({status:false, msg:"isPublished is invalid"})}
+        
+        /*------------------------Checking fileds values are empty or not-----------------------------------*/
+        if(!(isEmpty(title))){return res.status(400).send({status:false, msg:"Title is required"})}
+        if(!(isEmpty(body))){return res.status(400).send({status:false, msg:"body is required"})}
+        if(!(isEmpty(category))){return res.status(400).send({status:false, msg:"category is invalid"})}
+        
     
         if(isPublished == true){
             let today = moment().format('YYYY-MM-DD, hh:mm:ss a')
@@ -55,6 +51,7 @@ const createBlog = async function(req, res){
 const getBlog = async function(req ,res){
     try{
 
+        /*------------------------If Query is empty-----------------------------------*/
         if(Object.keys(req.query).length==0){
             let blog = await blogModel.find({isDeleted:false, isPublished:true}).populate('authorId')
             if(blog.length == 0){
@@ -63,6 +60,7 @@ const getBlog = async function(req ,res){
             return res.status(200).send({status:true, data:blog})
         }
         
+        /*------------------------If Query is not empty-----------------------------------*/
         if(Object.keys(req.query).length != 0){
             const filteredBlogs = await blogModel.find(req.query).populate('authorId')
             if(filteredBlogs.length == 0){
@@ -83,10 +81,13 @@ const updateDetails = async function(req,res){
         const blogId = req.params.blogId
         const {title, body, tags, subcategory, category, publishedAt, isPublished, isDeleted} = req.body
 
+        /*------------------------Checking body is empty or not-----------------------------------*/
         if(Object.keys(req.body).length == 0){return res.status(400).send({staus:false, msg:"Body is Empty"})}
     
+        /*------------------------Mongoose Id Validation-----------------------------------*/
         if(!(mongoose.isValidObjectId(blogId))){return res.status(400).send({staus:false, msg:"Invalid Object Id"})}
     
+        /*-------------------------------  Checking Blog in DB  -----------------------------------*/
         const blogIdCheck = await blogModel.findById(blogId)
         if(!blogIdCheck){return res.status(404).send({status:false, msg:"BlogId is not present in DB"})}
     
@@ -97,11 +98,11 @@ const updateDetails = async function(req,res){
             req.body.publishedAt = today
         }
     
-        const update = await blogModel.findOneAndUpdate({_id:blogId},
+        const update = await blogModel.findOneAndUpdate(
+            {_id:blogId},
             {title:title,body:body,$push:{tags:tags, subcategory:subcategory}, category:category, publishedAt:req.body.publishedAt, isPublished:isPublished},
-            {new:true})
-        
-        if(!update){return res.status(404).send({status:false, msg:"can't update this document"})}
+            {new:true}
+        )
         return res.status(200).send({status:true, message: "blog updated", data:update})
     }
     catch(err){
@@ -114,8 +115,11 @@ const deleteBlog = async function(req, res){
     try{
 
         const blogId = req.params.blogId
+
+        /*------------------------Mongoose Id Validation-----------------------------------*/
         if(!(mongoose.isValidObjectId(blogId))){return res.status(400).send({status:false, message:"Invalid Object Id"})}
     
+        /*-------------------------------  Checking Blog in DB  -----------------------------------*/
         const checkId = await blogModel.findById(blogId)
         if(!checkId){return res.status(404).send({status:false, message:"BlogId is not present in DB"})}
     
@@ -137,6 +141,7 @@ const deleteByQuery = async function(req, res){
         const data = req.query
         const authorId = req.query.authorId
         
+        /*------------------------Query is empty or not-----------------------------------*/
         if(Object.keys(data).length == 0){return res.status(400).send({status:false, msg:"query is missing"})}
         
         if(authorId){
@@ -144,20 +149,17 @@ const deleteByQuery = async function(req, res){
         }
     
         //Authotization
-        if(authorId != req.identity){return res.status(403).send({status:false, msg:"you are unauthorized to make changes"})}
+        if(authorId != req.tokenVerify.id){return res.status(403).send({status:false, msg:"you are unauthorized to make changes"})}
 
+        /*-------------------------------  Checking Blog in DB  -----------------------------------*/
         let blogFound = await blogModel.find(req.query)
-        
         if(blogFound.length == 0){return res.status(404).send({status:false, msg:"No blog found"})}
     
         let notDletedBlog = blogFound.filter((val) => val.isDeleted == false)
-    
         if(notDletedBlog.length == 0){return res.status(404).send({status:false, msg:"Blog is already deleted"})}
     
         let today = moment().format('YYYY-MM-DD', 'hh:mm:ss a')
 
-
-        
         await blogModel.updateMany(
             {$or:[{category:data.category}, {authorId:data.authorId}, {tags:data.tags},{subcategory:data.subcategory},{isPublished:data.isPublished}]},
             {$set:{isDeleted:true, deletedAt:today}}
