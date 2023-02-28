@@ -9,7 +9,7 @@ const authenticate = async function(req, res, next){
         
         jwt.verify(token,"pushpa jhukega nhi", function(err, tokenVerify){
             if(err){
-                return res.status(401).send({status:false, msg:"Invalid token coming from header"})
+                return res.status(401).send({status:false, msg:"Invalid token coming from header or taken has expired"})
             }else{
                 req.tokenVerify = tokenVerify
                 return next()

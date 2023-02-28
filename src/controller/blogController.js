@@ -50,24 +50,37 @@ const createBlog = async function(req, res){
 //--------------------------------- Get Blog ----------------------------------
 const getBlog = async function(req ,res){
     try{
+        const { authorId, category, subcategory, tags } = req.query
 
-        /*------------------------If Query is empty-----------------------------------*/
-        if(Object.keys(req.query).length==0){
-            let blog = await blogModel.find({isDeleted:false, isPublished:true}).populate('authorId')
-            if(blog.length == 0){
-                return res.status(404).send({status:false, msg:"No blogs found"})
-            }
-            return res.status(200).send({status:true, data:blog})
+        //CREATING AN CUSTOM OBJECT 
+        let findObj = {
+            isDeleted: false,
+            isPublished : true
         }
-        
-        /*------------------------If Query is not empty-----------------------------------*/
-        if(Object.keys(req.query).length != 0){
-            const filteredBlogs = await blogModel.find(req.query).populate('authorId')
-            if(filteredBlogs.length == 0){
-                return res.status(404).send({status:false, msg:"No blogs found with these filters"})
-            }
-            return res.status(200).send({status:true, data:filteredBlogs})
+
+        if (authorId) {
+            findObj["authorId"] = authorId
         }
+        if (category) {
+            findObj["category"] = category
+        }
+        if (subcategory) {
+            findObj["subcategory"] = subcategory
+        }
+        if (tags) {
+            findObj["tags"] = tags
+        }
+       
+         //CHECKING IF USER ID VALID OR NOT.---------------------------------------------------------------------
+         if (authorId) {
+            if(!(mongoose.isValidObjectId(authorId))) {return res.status(400).send({status:false, msg:"invalid authorId"})}
+        }
+
+        const filteredBlogs = await blogModel.find(findObj).populate('authorId')
+        if(filteredBlogs.length == 0){
+            return res.status(404).send({status:false, msg:"No blogs found with these filters"})
+        }
+        return res.status(200).send({status:true, data:filteredBlogs})
     }
     catch(err){
         return res.staus(500).send({status:false, msg:err.message})
@@ -79,7 +92,7 @@ const updateDetails = async function(req,res){
     try{
 
         const blogId = req.params.blogId
-        const {title, body, tags, subcategory, category, publishedAt, isPublished, isDeleted} = req.body
+        const {title, body, tags, subcategory, category, isPublished, isDeleted} = req.body
 
         /*------------------------Checking body is empty or not-----------------------------------*/
         if(Object.keys(req.body).length == 0){return res.status(400).send({staus:false, msg:"Body is Empty"})}

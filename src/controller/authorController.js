@@ -8,7 +8,7 @@ const {isValidMail, isValidPassword, isValidTitle, isEmpty, isValidName} = valid
 const createAuthors = async function(req,res){
     try{
         let data = req.body
-        const {fname, lname, title, email, password} = req.body
+        const {fname, lname, title, email, password} = data
         
         /*------------------------Checking body is empty or not-----------------------------------*/
         if(Object.keys(data).length == 0){
@@ -30,8 +30,8 @@ const createAuthors = async function(req,res){
         if(!(isEmpty(password))){res.status(400).send({status:false, msg : "password name is required"})}
     
         /*------------------------Checking mail is unique or not-----------------------------------*/
-        const uniqueEmail = await authorModel.find({email : email})
-        if(!uniqueEmail){res.status(400).send({staus : false, msg : "email is already exit"})} 
+        const duplicateEmail = await authorModel.findOne({email : email})
+        if(duplicateEmail){return res.status(400).send({staus : false, msg : "email is already exit"})} 
     
         /*-------------------------------  Validation(Regex)  -----------------------------------*/
         if(!(isValidName(fname))){return res.status(400).send({status:false, msg:"Please provide valid first name"})}
@@ -44,7 +44,7 @@ const createAuthors = async function(req,res){
         return res.status(201).send({status : true , data : authorCreate})
     }
     catch(err){
-        res.status(500).send({staus:false, msg:err.message})
+        return res.status(500).send({staus:false, msg:err.message})
     }
 }
 
